@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Polymarket Bot</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+:root {
+    --bg: #0a0e17;
+    --card: #111827;
+    --card2: #1a2332;
+    --border: #1e293b;
+    --text: #e2e8f0;
+    --dim: #64748b;
+    --green: #00ff88;
+    --red: #ff4757;
+    --blue: #00d4ff;
+    --purple: #a855f7;
+    --yellow: #fbbf24;
+    --orange: #fb923c;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+}
+
+.mono { font-family: 'JetBrains Mono', monospace; }
+
+/* 顶部 */
+.header {
+    background: linear-gradient(135deg, #111827 0%, #1a1a2e 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.header-left h1 {
+    font-size: 20px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--green), var(--blue));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+}
+.status-live { background: rgba(0,255,136,.12); color: var(--green); }
+.status-sim { background: rgba(251,191,36,.12); color: var(--yellow); }
+.status-off { background: rgba(255,71,87,.12); color: var(--red); }
+
+.dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.dot-green { background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite; }
+.dot-red { background: var(--red); box-shadow: 0 0 8px var(--red); }
+.dot-gray { background: var(--dim); }
+
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+.header-stats {
+    display: flex;
+    gap: 28px;
+}
+
+.big-stat {
+    text-align: right;
+}
+.big-stat .label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--dim);
+    margin-bottom: 2px;
+}
+.big-stat .value {
+    font-size: 28px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+}
+.big-stat .value.up { color: var(--green); }
+.big-stat .value.down { color: var(--red); }
+
+/* 统计栏 */
+.stats-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 12px;
+    padding: 16px 24px;
+}
+
+.stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    transition: all .2s;
+}
+.stat-card:hover {
+    border-color: rgba(0,255,136,.2);
+    transform: translateY(-1px);
+}
+.stat-card .icon { font-size: 18px; }
+.stat-card .s-label {
+    font-size: 11px;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-top: 4px;
+}
+.stat-card .s-value {
+    font-size: 22px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 2px;
+}
+
+/* 主内容 */
+.main {
+    display: grid;
+    grid-template-columns: 1fr 1fr 380px;
+    gap: 16px;
+    padding: 0 24px 24px;
+}
+@media(max-width:1200px) { .main { grid-template-columns: 1fr 1fr; } }
+@media(max-width:768px) { .main { grid-template-columns: 1fr; } }
+
+.panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.panel-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.panel-body {
+    padding: 12px;
+    max-height: 500px;
+    overflow-y: auto;
+}
+.panel-body::-webkit-scrollbar { width: 4px; }
+.panel-body::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+
+/* Agent 卡片 */
+.agent-card {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 10px;
+    transition: all .2s;
+}
+.agent-card:hover {
+    border-color: rgba(0,212,255,.2);
+}
+.agent-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+.agent-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 13px;
+}
+.agent-status {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 12px;
+}
+.agent-status.running { background: rgba(0,255,136,.1); color: var(--green); }
+.agent-status.error { background: rgba(255,71,87,.1); color: var(--red); }
+.agent-status.idle { background: rgba(100,116,139,.1); color: var(--dim); }
+
+.agent-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+.agent-stat {
+    text-align: center;
+}
+.agent-stat .as-label {
+    font-size: 10px;
+    color: var(--dim);
+    text-transform: uppercase;
+}
+.agent-stat .as-val {
+    font-size: 16px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 2px;
+}
+
+/* 交易行 */
+.trade-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 6px;
+    background: var(--card2);
+    border-left: 3px solid transparent;
+    transition: all .15s;
+    animation: slideIn .3s ease;
+}
+.trade-row:hover { background: rgba(30,41,59,.8); }
+.trade-row.yes { border-left-color: var(--green); }
+.trade-row.no { border-left-color: var(--red); }
+
+@keyframes slideIn { from{opacity:0;transform:translateY(-5px)} to{opacity:1;transform:translateY(0)} }
+
+.trade-info {
+    flex: 1;
+    min-width: 0;
+}
+.trade-market {
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 250px;
+}
+.trade-meta {
+    font-size: 11px;
+    color: var(--dim);
+    margin-top: 3px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.side-tag {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+.side-tag.yes { background: rgba(0,255,136,.15); color: var(--green); }
+.side-tag.no { background: rgba(255,71,87,.15); color: var(--red); }
+
+.trade-pnl {
+    text-align: right;
+    flex-shrink: 0;
+    margin-left: 12px;
+}
+.trade-pnl .pnl-val {
+    font-size: 13px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+}
+.trade-pnl .pnl-time {
+    font-size: 10px;
+    color: var(--dim);
+}
+
+/* 事件流 */
+.event-item {
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 6px;
+    border-left: 3px solid var(--border);
+    background: var(--card2);
+    animation: slideIn .3s ease;
+}
+.event-item.trade { border-left-color: var(--green); background: rgba(0,255,136,.03); }
+.event-item.signal { border-left-color: var(--blue); background: rgba(0,212,255,.03); }
+.event-item.error { border-left-color: var(--red); background: rgba(255,71,87,.03); }
+.event-item.info { border-left-color: var(--dim); }
+
+.event-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+.event-agent {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(30,41,59,.8);
+    color: var(--dim);
+    font-weight: 600;
+}
+.event-time {
+    font-size: 10px;
+    color: var(--dim);
+    font-family: 'JetBrains Mono', monospace;
+}
+.event-msg {
+    font-size: 12px;
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+/* 空状态 */
+.empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--dim);
+}
+.empty .em-icon { font-size: 36px; margin-bottom: 8px; }
+.empty .em-text { font-size: 13px; }
+
+/* 加载 */
+.loading-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    gap: 16px;
+}
+.loading-screen .ld-icon {
+    font-size: 56px;
+    animation: bounce 1s infinite;
+}
+@keyframes bounce {
+    0%,100%{transform:translateY(0)}
+    50%{transform:translateY(-12px)}
+}
+.loading-screen h2 {
+    font-size: 22px;
+    background: linear-gradient(135deg, var(--green), var(--blue));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.loading-screen p { color: var(--dim); font-size: 14px; }
+.loading-bar {
+    width: 200px; height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+}
+.loading-bar::after {
+    content: '';
+    display: block;
+    width: 40%;
+    height: 100%;
+    background: var(--green);
+    border-radius: 2px;
+    animation: load 1.2s ease infinite;
+}
+@keyframes load { 0%{transform:translateX(-100%)} 100%{transform:translateX(350%)} }
+</style>
+</head>
+<body>
+
+<div id="loading" class="loading-screen">
+    <div class="ld-icon">🤖</div>
+    <h2>Polymarket Trading Bot</h2>
+    <p>连接服务器中...</p>
+    <div class="loading-bar"></div>
+</div>
+
+<div id="app" style="display:none">
+    <!-- Header -->
+    <div class="header">
+        <div class="header-left">
+            <span style="font-size:28px">🤖</span>
+            <div>
+                <h1>Polymarket Bot</h1>
+                <div>
+                    <span id="conn-badge" class="status-badge status-off">
+                        <span class="dot dot-gray"></span> 离线
+                    </span>
+                    <span id="mode-badge" class="status-badge status-sim" style="margin-left:6px">
+                        🧪 模拟
+                    </span>
+                    <span style="font-size:12px;color:var(--dim);margin-left:8px">
+                        运行 <span id="uptime" class="mono">0.0</span>h
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="header-stats">
+            <div class="big-stat">
+                <div class="label">余额</div>
+                <div class="value up mono" id="balance">$0.00</div>
+            </div>
+            <div class="big-stat">
+                <div class="label">盈亏</div>
+                <div class="value up mono" id="pnl">+$0.00</div>
+            </div>
+            <div class="big-stat">
+                <div class="label">回报率</div>
+                <div class="value up mono" id="roi">0%</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Bar -->
+    <div class="stats-bar">
+        <div class="stat-card">
+            <span class="icon">📊</span>
+            <div class="s-label">总交易</div>
+            <div class="s-value" id="s-trades">0</div>
+        </div>
+        <div class="stat-card">
+            <span class="icon">🎯</span>
+            <div class="s-label">胜率</div>
+            <div class="s-value" id="s-winrate" style="color:var(--green)">0%</div>
+        </div>
+        <div class="stat-card">
+            <span class="icon">⚡</span>
+            <div class="s-label">赢 / 输</div>
+            <div class="s-value" id="s-winloss">0 / 0</div>
+        </div>
+        <div class="stat-card">
+            <span class="icon">🔄</span>
+            <div class="s-label">持仓</div>
+            <div class="s-value" id="s-open" style="color:var(--blue)">0</div>
+        </div>
+        <div class="stat-card">
+            <span class="icon">💰</span>
+            <div class="s-label">初始资金</div>
+            <div class="s-value" id="s-init" style="color:var(--dim)">$150</div>
+        </div>
+        <div class="stat-card">
+            <span class="icon">🚀</span>
+            <div class="s-label">倍数</div>
+            <div class="s-value" id="s-multi" style="color:var(--green)">1.0x</div>
+        </div>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="main">
+        <!-- Agents -->
+        <div class="panel">
+            <div class="panel-header">🤖 Agent 状态</div>
+            <div class="panel-body" id="agents-list">
+                <div class="empty"><div class="em-icon">⏳</div><div class="em-text">等待数据...</div></div>
+            </div>
+        </div>
+
+        <!-- Trades -->
+        <div class="panel">
+            <div class="panel-header">📋 交易记录 <span id="trade-count" style="color:var(--dim);font-weight:400;font-size:12px;margin-left:auto"></span></div>
+            <div class="panel-body" id="trades-list">
+                <div class="empty"><div class="em-icon">📭</div><div class="em-text">暂无交易</div></div>
+            </div>
+        </div>
+
+        <!-- Events -->
+        <div class="panel">
+            <div class="panel-header">⚡ 实时事件 <span class="dot dot-green" style="margin-left:auto"></span></div>
+            <div class="panel-body" id="events-list">
+                <div class="empty"><div class="em-icon">📡</div><div class="em-text">等待事件...</div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const AGENT_META = {
+    weather:  { icon: '🌧️', name: '气象狙击手' },
+    crypto:   { icon: '₿',  name: '加密猎人' },
+    politics: { icon: '🏛️', name: '政治收割机' },
+    sports:   { icon: '🏀', name: '伤病监控' },
+};
+
+const EVENT_ICONS = { trade: '💰', signal: '🔔', error: '⚠️', info: 'ℹ️' };
+
+let ws = null;
+let events = [];
+
+function connect() {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const url = `${proto}//${location.host}/ws`;
+
+    ws = new WebSocket(url);
+
+    ws.onopen = () => {
+        setConn(true);
+        console.log('WS connected');
+    };
+
+    ws.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'init' || msg.type === 'dashboard') {
+            render(msg.data);
+        }
+        if (msg.type === 'event') {
+            events.unshift(msg.data);
+            if (events.length > 200) events.pop();
+            renderEvents();
+        }
+    };
+
+    ws.onclose = () => {
+        setConn(false);
+        setTimeout(connect, 3000);
+    };
+
+    ws.onerror = () => ws.close();
+}
+
+function setConn(on) {
+    const b = document.getElementById('conn-badge');
+    if (on) {
+        b.className = 'status-badge status-live';
+        b.innerHTML = '<span class="dot dot-green"></span> 已连接';
+    } else {
+        b.className = 'status-badge status-off';
+        b.innerHTML = '<span class="dot dot-red"></span> 断开';
+    }
+}
+
+function render(d) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+
+    // Header
+    const isUp = d.pnl >= 0;
+    const cls = isUp ? 'up' : 'down';
+    const sign = isUp ? '+' : '';
+
+    const balEl = document.getElementById('balance');
+    balEl.textContent = '$' + d.balance.toLocaleString('en', {minimumFractionDigits:2});
+    balEl.className = `value ${cls} mono`;
+
+    const pnlEl = document.getElementById('pnl');
+    pnlEl.textContent = sign + '$' + Math.abs(d.pnl).toLocaleString('en', {minimumFractionDigits:2});
+    pnlEl.className = `value ${cls} mono`;
+
+    const roi = d.initial > 0 ? (d.pnl / d.initial * 100) : 0;
+    const roiEl = document.getElementById('roi');
+    roiEl.textContent = sign + roi.toFixed(0) + '%';
+    roiEl.className = `value ${cls} mono`;
+
+    document.getElementById('uptime').textContent = d.uptime;
+
+    // Mode
+    const mb = document.getElementById('mode-badge');
+    if (d.dry_run) {
+        mb.className = 'status-badge status-sim';
+        mb.textContent = '🧪 模拟';
+    } else {
+        mb.className = 'status-badge status-live';
+        mb.textContent = '⚡ 实盘';
+    }
+
+    // Stats
+    const losses = d.total_trades - d.wins;
+    document.getElementById('s-trades').textContent = d.total_trades;
+    document.getElementById('s-winrate').textContent = d.win_rate + '%';
+    document.getElementById('s-winrate').style.color = d.win_rate >= 60 ? 'var(--green)' : d.win_rate >= 40 ? 'var(--yellow)' : 'var(--red)';
+    document.getElementById('s-winloss').textContent = d.wins + ' / ' + losses;
+    document.getElementById('s-open').textContent = d.open_positions;
+    document.getElementById('s-init').textContent = '$' + d.initial;
+    const multi = d.initial > 0 ? (d.balance / d.initial).toFixed(1) : '0.0';
+    document.getElementById('s-multi').textContent = multi + 'x';
+    document.getElementById('s-multi').style.color = d.balance >= d.initial ? 'var(--green)' : 'var(--red)';
+
+    // Agents
+    const al = document.getElementById('agents-list');
+    if (d.agents && d.agents.length) {
+        al.innerHTML = d.agents.map(a => {
+            const m = AGENT_META[a.name] || {icon:'🤖', name:a.name};
+            const stCls = a.status === 'running' ? 'running' : a.status === 'error' ? 'error' : 'idle';
+            const stText = a.status === 'running' ? '运行中' : a.status === 'error' ? '错误' : '空闲';
+            const wrColor = a.win_rate >= 60 ? 'var(--green)' : a.win_rate >= 40 ? 'var(--yellow)' : 'var(--dim)';
+            const pnlColor = a.pnl >= 0 ? 'var(--green)' : 'var(--red)';
+            const pnlSign = a.pnl >= 0 ? '+' : '';
+            return `
+            <div class="agent-card">
+                <div class="agent-top">
+                    <div class="agent-name">
+                        <span style="font-size:20px">${m.icon}</span>
+                        ${m.name}
+                    </div>
+                    <span class="agent-status ${stCls}">
+                        <span class="dot dot-${stCls === 'running' ? 'green' : stCls === 'error' ? 'red' : 'gray'}" style="margin-right:4px"></span>
+                        ${stText}
+                    </span>
+                </div>
+                <div class="agent-stats">
+                    <div class="agent-stat">
+                        <div class="as-label">交易</div>
+                        <div class="as-val">${a.trades}</div>
+                    </div>
+                    <div class="agent-stat">
+                        <div class="as-label">胜率</div>
+                        <div class="as-val" style="color:${wrColor}">${a.win_rate}%</div>
+                    </div>
+                    <div class="agent-stat">
+                        <div class="as-label">盈亏</div>
+                        <div class="as-val" style="color:${pnlColor}">${pnlSign}$${Math.abs(a.pnl).toFixed(2)}</div>
+                    </div>
+                </div>
+                ${a.errors > 0 ? `<div style="font-size:11px;color:var(--red);margin-top:8px">⚠️ ${a.errors}个错误</div>` : ''}
+            </div>`;
+        }).join('');
+    }
+
+    // Trades
+    const tl = document.getElementById('trades-list');
+    document.getElementById('trade-count').textContent = d.trades.length ? `最近${d.trades.length}笔` : '';
+    if (d.trades && d.trades.length) {
+        tl.innerHTML = d.trades.map(t => {
+            const m = AGENT_META[t.agent] || {icon:'🤖'};
+            const isYes = t.side === 'YES';
+            const sideCls = isYes ? 'yes' : 'no';
+            const pnlStr = t.status === 'open'
+                ? '<span style="color:var(--blue);font-size:11px">持仓中</span>'
+                : `<span style="color:${t.pnl>=0?'var(--green)':'var(--red)'}">${t.pnl>=0?'+':''}$${(t.pnl||0).toFixed(2)}</span>`;
+            const edgeStr = t.edge ? `优势${(t.edge*100).toFixed(0)}%` : '';
+            return `
+            <div class="trade-row ${sideCls}">
+                <div class="trade-info">
+                    <div class="trade-market">${m.icon} ${t.market || ''}</div>
+                    <div class="trade-meta">
+                        <span class="side-tag ${sideCls}">${t.side}</span>
+                        <span class="mono">@${(t.price*100).toFixed(0)}¢</span>
+                        <span style="color:var(--blue)">${edgeStr}</span>
+                    </div>
+                </div>
+                <div class="trade-pnl">
+                    <div class="pnl-val">${pnlStr}</div>
+                    <div class="pnl-time mono">${t.time || ''}</div>
+                </div>
+            </div>`;
+        }).join('');
+    } else {
+        tl.innerHTML = '<div class="empty"><div class="em-icon">📭</div><div class="em-text">暂无交易</div></div>';
+    }
+
+    // Events from dashboard
+    if (d.events && d.events.length && events.length === 0) {
+        events = d.events.reverse();
+        renderEvents();
+    }
+}
+
+function renderEvents() {
+    const el = document.getElementById('events-list');
+    if (!events.length) {
+        el.innerHTML = '<div class="empty"><div class="em-icon">📡</div><div class="em-text">等待事件...</div></div>';
+        return;
+    }
+    el.innerHTML = events.slice(0, 50).map(e => {
+        const m = AGENT_META[e.agent] || {name: e.agent};
+        const icon = EVENT_ICONS[e.type] || 'ℹ️';
+        return `
+        <div class="event-item ${e.type || 'info'}">
+            <div class="event-head">
+                <span style="font-size:13px">${icon}</span>
+                <span class="event-agent">${m.name || e.agent}</span>
+                <span class="event-time">${e.time || ''}</span>
+            </div>
+            <div class="event-msg">${e.msg || ''}</div>
+        </div>`;
+    }).join('');
+}
+
+// Fallback: REST polling
+async function poll() {
+    try {
+        const r = await fetch('/api/dashboard');
+        if (r.ok) {
+            const d = await r.json();
+            render(d);
+        }
+    } catch(e) {}
+}
+
+// 启动
+connect();
+setInterval(() => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        poll();
+    }
+}, 5000);
+
+// 首次加载
+poll();
+</script>
+
+</body>
+</html>
